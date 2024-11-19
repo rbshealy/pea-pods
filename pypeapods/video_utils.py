@@ -37,6 +37,9 @@ def video_to_frames(video_path, output_dir):
 def frames_to_video(frames_input, video_output):
 
     images = [img for img in os.listdir(frames_input) if img.endswith(".png")]
+    if len(images) == 0:
+        print(f"Nothing in expected path: {frames_input}")
+        return
     frame = cv2.imread(os.path.join(frames_input, images[0]))
     height, width, layers = frame.shape
     fourcc = cv2.VideoWriter_fourcc(*"mp4v")

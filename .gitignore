@@ -4,5 +4,6 @@ pypeapods/output/*
 scripts/
 study_src/
 pypeapods/data/output/*
+.idea
 
 
