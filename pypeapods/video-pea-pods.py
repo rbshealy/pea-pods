@@ -3,6 +3,7 @@ import utils
 import statistics
 
 import os
+from os.path import basename
 import imageio.v3 as iio
 
 import numpy as np
@@ -57,38 +58,41 @@ if __name__ == "__main__":
     pea_pod_out = "./output/frames"
     os.makedirs(frames_dir, exist_ok=True)
 
-    vid_pths = glob(video_input + "/*.mp4")  # list of image paths
+    vid_pths = glob(video_input + "/*.mp4")  # list of video paths
 
-    video_to_frames(video_input, frames_dir)
+
     img_pths = glob(frames_dir + "/*.png")  # list of image paths
     alpha = 0.5
 
+    for vid in vid_pths:
+        savings_dict = {}
+        base_name, _ = os.path.splitext(basename(vid))
+        # compute images using brightness rolloff
+        video_to_frames(vid, frames_dir)
+        for pea in peas:
+            frame_count = 0
+            for pod in pods:
+                savings_dict[pod.name] = []
+            vid_name = f"/{base_name}_{pea.name}_alpha:{alpha}.avi"
+            for pth in img_pths:
+                image = utils.srgb2rgb(iio.imread(pth) / 255)
+                image_modulated = pea.evaluate(image, f"frame_{frame_count:04d}", alpha, **display_params)
+                if pea.name == brightnessrolloff.name:
+                    for pod in pods:
+                        # compute dynamic power consumption for modulated and reference image
+                        _, power_reference = pod.evaluate(image)
+                        _, power_modulated = pod.evaluate(image_modulated)
+                        # compute savings
+                        savings = (1 - power_modulated / power_reference) * 100
+                        savings_dict[pod.name].append(savings)
+                frame_count += 1
 
-    savings_dict = {}
-    # compute images using brightness rolloff
-    for pea in peas:
-        frame_count = 0
-        for pod in pods:
-            savings_dict[pod.name] = []
-        vid_name = f"/{pea.name}_alpha_{alpha}.avi"
-        for pth in img_pths:
-            image = utils.srgb2rgb(iio.imread(pth) / 255)
-            image_modulated = pea.evaluate(image, f"frame_{frame_count:04d}", alpha, **display_params)
             if pea.name == brightnessrolloff.name:
                 for pod in pods:
-                    # compute dynamic power consumption for modulated and reference image
-                    _, power_reference = pod.evaluate(image)
-                    _, power_modulated = pod.evaluate(image_modulated)
-                    # compute savings
-                    savings = (1 - power_modulated / power_reference) * 100
-                    savings_dict[pod.name].append(savings)
-            frame_count += 1
+                    print(f"{vid_name} has average->{statistics.mean(savings_dict[pod.name]):.2f}% savings on {pod.name}")
 
-        if pea.name == brightnessrolloff.name:
-            for pod in pods:
-                print(f"{vid_name} has average->{statistics.mean(savings_dict[pod.name]):.2f}% savings on {pod.name}")
-
-        frames_to_video(pea_pod_out, video_output + vid_name)
-        clear_dir(pea_pod_out)
+            frames_to_video(pea_pod_out, video_output + vid_name)
+            clear_dir(pea_pod_out)
+        clear_dir(frames_dir)
 
 
