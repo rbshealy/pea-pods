@@ -1,5 +1,6 @@
 from video_utils import *
 import utils
+import statistics
 
 import os
 import imageio.v3 as iio
@@ -22,10 +23,15 @@ from peapods import PEAPODs
 if __name__ == "__main__":
 
     # define PEA and POD
-    #globalLC = GlobalLC(measurements_pth="data/mqp_display/mqp_BLU.csv", name="Global Dimming LC")
-    uniformdimming = UniformDimming(color="limegreen", name="Uniform Dimming")
-    brightnessrolloff = BrightnessRolloff(color="gold", name="Brightness Rolloff")
-    dichopticdimming = DichopticDimming(color="violet", name="Dichoptic Dimming")
+    globalLC = GlobalLC(measurements_pth="data/mqp_display/mqp_BLU.csv", name="Global Dimming LC")
+    localLC = LocalLC(measurements_pth="data/mqp_display/mqp_BLU.csv", name="Local Dimming LC")
+    oled = OLED(name="OLED")
+    pods = [globalLC, localLC, oled]
+
+    uniformdimming = UniformDimming(color="limegreen", name="Uniform_Dimming")
+    brightnessrolloff = BrightnessRolloff(color="gold", name="Brightness_Rolloff")
+    dichopticdimming = DichopticDimming(color="violet", name="Dichoptic_Dimming")
+    peas = [uniformdimming, brightnessrolloff, dichopticdimming]
 
 
     # compute eccentricity map
@@ -51,50 +57,38 @@ if __name__ == "__main__":
     pea_pod_out = "./output/frames"
     os.makedirs(frames_dir, exist_ok=True)
 
+    vid_pths = glob(video_input + "/*.mp4")  # list of image paths
 
     video_to_frames(video_input, frames_dir)
-
     img_pths = glob(frames_dir + "/*.png")  # list of image paths
     alpha = 0.5
-    frame_count = 0
-
-    """
-    #compute images using uniform dimming
-    for pth in img_pths:
-        image = utils.srgb2rgb(iio.imread(pth) / 255)
-        image_modulated = uniformdimming.evaluate(image, f"frame_{frame_count:04d}.png", alpha, **display_params)
-        frame_count += 1
-    print(".")
-
-    frames_to_video(pea_pod_out, video_output + f"/uniform_dimming_alpha_{alpha}.avi")
-    clear_dir(pea_pod_out)
-    """
 
 
-
+    savings_dict = {}
     # compute images using brightness rolloff
-    for pth in img_pths:
-        image = utils.srgb2rgb(iio.imread(pth) / 255)
-        image_modulated = brightnessrolloff.evaluate(image, f"frame_{frame_count:04d}.png", alpha, **display_params)
-        frame_count += 1
-    print(".")
+    for pea in peas:
+        frame_count = 0
+        for pod in pods:
+            savings_dict[pod.name] = []
+        vid_name = f"/{pea.name}_alpha_{alpha}.avi"
+        for pth in img_pths:
+            image = utils.srgb2rgb(iio.imread(pth) / 255)
+            image_modulated = pea.evaluate(image, f"frame_{frame_count:04d}", alpha, **display_params)
+            if pea.name == brightnessrolloff.name:
+                for pod in pods:
+                    # compute dynamic power consumption for modulated and reference image
+                    _, power_reference = pod.evaluate(image)
+                    _, power_modulated = pod.evaluate(image_modulated)
+                    # compute savings
+                    savings = (1 - power_modulated / power_reference) * 100
+                    savings_dict[pod.name].append(savings)
+            frame_count += 1
 
-    frames_to_video(pea_pod_out, video_output + f"/brightness_rolloff_alpha_{alpha}.avi")
-    clear_dir(pea_pod_out)
+        if pea.name == brightnessrolloff.name:
+            for pod in pods:
+                print(f"{vid_name} has average->{statistics.mean(savings_dict[pod.name]):.2f}% savings on {pod.name}")
 
-
-    """
-    # compute images using Dichoptic Dimming
-    for pth in img_pths:
-        image = utils.srgb2rgb(iio.imread(pth) / 255)
-        image_modulated = dichopticdimming.evaluate(image, f"frame_{frame_count:04d}.png", alpha, **display_params)
-        frame_count += 1
-    print(".")
-
-    frames_to_video(pea_pod_out, video_output + f"/dichoptic_dimming_alpha_{alpha}.avi")
-    """
-
-    clear_dir(frames_dir)
-    clear_dir(pea_pod_out)
+        frames_to_video(pea_pod_out, video_output + vid_name)
+        clear_dir(pea_pod_out)
 
 
