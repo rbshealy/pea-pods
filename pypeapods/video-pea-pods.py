@@ -59,20 +59,20 @@ if __name__ == "__main__":
     os.makedirs(frames_dir, exist_ok=True)
 
     vid_pths = glob(video_input + "/*.mp4")  # list of video paths
-
-    img_pths = glob(frames_dir + "/*.png")  # list of image paths
     alpha = 0.5
+    vid_num = 1
 
     for vid in vid_pths:
         savings_dict = {}
         base_name, _ = os.path.splitext(basename(vid))
         # compute images using brightness rolloff
         video_to_frames(vid, frames_dir)
+        img_pths = glob(frames_dir + "/*.png")  # list of image paths
         for pea in peas:
             frame_count = 0
             for pod in pods:
                 savings_dict[pod.name] = []
-            vid_name = f"/{base_name}_{pea.name}_alpha:{alpha}.avi"
+            vid_name = f"/{base_name}_{pea.name}_Alpha_{alpha}.mp4"
             for pth in img_pths:
                 image = utils.srgb2rgb(iio.imread(pth) / 255)
                 image_modulated = pea.evaluate(image, f"frame_{frame_count:04d}", alpha, **display_params)
@@ -93,5 +93,6 @@ if __name__ == "__main__":
             frames_to_video(pea_pod_out, video_output + vid_name)
             clear_dir(pea_pod_out)
         clear_dir(frames_dir)
+        vid_num += 1
 
 
