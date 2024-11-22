@@ -51,7 +51,7 @@ if __name__ == "__main__":
     }
 
 
-    video_input = "./data/videos/VIDEO.mp4"  # Replace with your video file path
+    video_input = "./data/videos"  # Replace with your video file path
     frames_dir = "./data/output/v_frames"  # Replace with your desired output directory
     video_output = "./data/output/videos"
 
@@ -59,7 +59,6 @@ if __name__ == "__main__":
     os.makedirs(frames_dir, exist_ok=True)
 
     vid_pths = glob(video_input + "/*.mp4")  # list of video paths
-
 
     img_pths = glob(frames_dir + "/*.png")  # list of image paths
     alpha = 0.5
